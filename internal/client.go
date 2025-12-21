@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -62,37 +63,73 @@ type Client struct {
 }
 
 // NewClient creates a new API client for the Unifi DNS API.
+// It configures the client to accept self-signed/invalid SSL certificates,
+// which is common for local Unifi installations.
 func NewClient(apiKey, baseURL string) *Client {
+	// Create a custom TLS configuration that skips certificate verification
+	// This is necessary for Unifi controllers with self-signed certificates
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	// Create a custom HTTP transport with the TLS configuration
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
 	return &Client{
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout: DefaultTimeout,
+			Timeout:   DefaultTimeout,
+			Transport: transport,
 		},
 	}
 }
 
 // ListPolicies retrieves all DNS policies for a site from the Unifi API.
-// It fetches up to 1000 policies using pagination.
+// It fetches up to 1000 policies using pagination, making multiple requests as needed.
 func (c *Client) ListPolicies(ctx context.Context, siteID string) ([]DNSPolicy, error) {
-	url := fmt.Sprintf("%s/sites/%s/dns/policies?offset=0&limit=1000", c.baseURL, siteID)
+	const maxRecords = 1000
+	const pageSize = 200
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	var allPolicies []DNSPolicy
+	offset := 0
+
+	for {
+		url := fmt.Sprintf("%s/sites/%s/dns/policies?offset=%d&limit=%d", c.baseURL, siteID, offset, pageSize)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		resp, err := c.do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var listResp ListResponse
+		if err := json.Unmarshal(resp, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+
+		// If no data returned, we've fetched all available policies
+		if len(listResp.Data) == 0 {
+			break
+		}
+
+		allPolicies = append(allPolicies, listResp.Data...)
+
+		// Stop if we've reached the maximum records or fetched all available
+		if len(allPolicies) >= maxRecords || int32(len(allPolicies)) >= listResp.TotalCount {
+			break
+		}
+
+		offset += pageSize
 	}
 
-	resp, err := c.do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	var listResp ListResponse
-	if err := json.Unmarshal(resp, &listResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return listResp.Data, nil
+	return allPolicies, nil
 }
 
 // CreatePolicy creates a new DNS policy in the Unifi API.
@@ -167,7 +204,7 @@ func (c *Client) do(req *http.Request) ([]byte, error) {
 	// Set default headers
 	req.Header.Set("Content-Type", "application/json")
 	if c.apiKey != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+		req.Header.Set("X-API-KEY", c.apiKey)
 	}
 
 	resp, err := c.httpClient.Do(req)
