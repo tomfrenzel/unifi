@@ -1,6 +1,6 @@
-// Package libdnstemplate implements a DNS record management client compatible
+// Package unifi implements a DNS record management client compatible
 // with the libdns interfaces for UniFi
-package libdnstemplate
+package unifi
 
 import (
 	"context"
