@@ -89,15 +89,15 @@ func NewClient(apiKey, baseURL string) *Client {
 
 // ListPolicies retrieves all DNS policies for a site from the Unifi API.
 // It fetches up to 1000 policies using pagination, making multiple requests as needed.
-func (c *Client) ListPolicies(ctx context.Context, siteID string) ([]DNSPolicy, error) {
+func (c *Client) ListPolicies(ctx context.Context, siteID string, zone string) ([]DNSPolicy, error) {
 	const maxRecords = 1000
-	const pageSize = 200
+	const pageSize = 25
 
 	var allPolicies []DNSPolicy
 	offset := 0
 
 	for {
-		url := fmt.Sprintf("%s/sites/%s/dns/policies?offset=%d&limit=%d", c.baseURL, siteID, offset, pageSize)
+		url := fmt.Sprintf("%s/sites/%s/dns/policies?offset=%d&limit=%d&filter=or(domain.eq('%s'),domain.like('*%s'))", c.baseURL, siteID, offset, pageSize, zone, zone)
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
