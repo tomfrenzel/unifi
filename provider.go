@@ -36,7 +36,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 		return nil, err
 	}
 
-	policies, err := client.ListPolicies(ctx, p.SiteId)
+	policies, err := client.ListPolicies(ctx, p.SiteId, zone)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	}
 
 	// Get existing records to match them with incoming records
-	existing, err := client.ListPolicies(ctx, p.SiteId)
+	existing, err := client.ListPolicies(ctx, p.SiteId, zone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list existing policies: %w", err)
 	}
@@ -151,7 +151,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	}
 
 	// Get existing records to find IDs for deletion
-	existing, err := client.ListPolicies(ctx, p.SiteId)
+	existing, err := client.ListPolicies(ctx, p.SiteId, zone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list existing policies: %w", err)
 	}
