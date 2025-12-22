@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/libdns/libdns"
-	"github.com/libdns/unifi/internal"
+	"github.com/libdns/unifi/internal/unifi"
 )
 
 // Provider facilitates DNS record management for Unifi Network.
@@ -24,7 +24,7 @@ type Provider struct {
 	// Example: https://192.168.1.1/proxy/network/integration/v1
 	BaseUrl string `json:"base_url,omitempty"`
 
-	client *internal.Client
+	client *unifi.Client
 	mu     sync.Mutex
 }
 
@@ -43,7 +43,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 	records := make([]libdns.Record, len(policies))
 	for i, policy := range policies {
-		record, err := internal.PolicyToLibdns(policy)
+		record, err := unifi.PolicyToLibdns(policy)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
 		}
@@ -63,7 +63,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := internal.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
@@ -73,7 +73,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 			return nil, fmt.Errorf("failed to create DNS policy: %w", err)
 		}
 
-		createdRecord, err := internal.PolicyToLibdns(created)
+		createdRecord, err := unifi.PolicyToLibdns(created)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert created policy to libdns record: %w", err)
 		}
@@ -101,13 +101,13 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := internal.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
 
 		// Find existing record by domain name
-		var existingPolicy *internal.DNSPolicy
+		var existingPolicy *unifi.DNSPolicy
 		for i := range existing {
 			if existing[i].Domain == policy.Domain {
 				existingPolicy = &existing[i]
@@ -115,7 +115,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 			}
 		}
 
-		var result_policy internal.DNSPolicy
+		var result_policy unifi.DNSPolicy
 		var setErr error
 
 		if existingPolicy != nil {
@@ -132,7 +132,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 			}
 		}
 
-		createdRecord, err := internal.PolicyToLibdns(result_policy)
+		createdRecord, err := unifi.PolicyToLibdns(result_policy)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
 		}
@@ -159,13 +159,13 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := internal.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
 
 		// Find existing record by domain name
-		var existingPolicy *internal.DNSPolicy
+		var existingPolicy *unifi.DNSPolicy
 		for i := range existing {
 			if existing[i].Domain == policy.Domain {
 				existingPolicy = &existing[i]
@@ -188,7 +188,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 }
 
 // getClient lazily initializes and returns the API client.
-func (p *Provider) getClient() (*internal.Client, error) {
+func (p *Provider) getClient() (*unifi.Client, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -202,7 +202,7 @@ func (p *Provider) getClient() (*internal.Client, error) {
 		if p.BaseUrl == "" {
 			return nil, fmt.Errorf("base URL is required")
 		}
-		p.client = internal.NewClient(p.APIKey, p.BaseUrl)
+		p.client = unifi.NewClient(p.APIKey, p.BaseUrl)
 	}
 
 	return p.client, nil
