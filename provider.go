@@ -5,6 +5,7 @@ package unifi
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/libdns/libdns"
@@ -13,6 +14,8 @@ import (
 
 // Provider facilitates DNS record management for Unifi Network.
 // It implements the libdns record management interfaces.
+//
+// Credentials can be set directly on the struct fields or via environment variables:
 type Provider struct {
 	// APIKey is the Unifi API authentication key.
 	APIKey string `json:"api_key,omitempty"`
@@ -193,21 +196,40 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 }
 
 // getClient lazily initializes and returns the API client.
+// It uses the provider's fields, falling back to environment variables if not set:
+// - UNIFI_API_KEY for APIKey
+// - UNIFI_SITE_ID for SiteId
+// - UNIFI_BASE_URL for BaseUrl
 func (p *Provider) getClient() (*unifi.Client, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	if p.client == nil {
-		if p.APIKey == "" {
-			return nil, fmt.Errorf("API key is required")
+		apiKey := p.APIKey
+		if apiKey == "" {
+			apiKey = os.Getenv("UNIFI_API_KEY")
 		}
-		if p.SiteId == "" {
-			return nil, fmt.Errorf("site ID is required")
+		if apiKey == "" {
+			return nil, fmt.Errorf("API key is required (set APIKey field or UNIFI_API_KEY env var)")
 		}
-		if p.BaseUrl == "" {
-			return nil, fmt.Errorf("base URL is required")
+
+		siteID := p.SiteId
+		if siteID == "" {
+			siteID = os.Getenv("UNIFI_SITE_ID")
 		}
-		p.client = unifi.NewClient(p.APIKey, p.BaseUrl)
+		if siteID == "" {
+			return nil, fmt.Errorf("site ID is required (set SiteId field or UNIFI_SITE_ID env var)")
+		}
+
+		baseURL := p.BaseUrl
+		if baseURL == "" {
+			baseURL = os.Getenv("UNIFI_BASE_URL")
+		}
+		if baseURL == "" {
+			return nil, fmt.Errorf("base URL is required (set BaseUrl field or UNIFI_BASE_URL env var)")
+		}
+
+		p.client = unifi.NewClient(apiKey, baseURL)
 	}
 
 	return p.client, nil
