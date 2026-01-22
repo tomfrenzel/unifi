@@ -27,15 +27,26 @@ const (
 	RecordTypeForward = "FORWARD_DOMAIN"
 )
 
-func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
+// LibdnsToPolicy converts a libdns record to a Unifi DNS policy.
+// The zone parameter is required to construct the full domain name.
+// For example, with record name "www" and zone "example.com", the domain becomes "www.example.com".
+func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 	ttl := int32(record.RR().TTL.Seconds())
+
+	// Construct full domain name by appending zone to record name
+	domain := record.RR().Name
+	if domain != "" && domain != "@" {
+		domain = domain + "." + zone
+	} else {
+		domain = zone
+	}
 
 	switch r := record.(type) {
 	case libdns.Address:
 		if r.IP.Is4() {
 			return DNSPolicy{
 				Type:        RecordTypeA,
-				Domain:      r.Name,
+				Domain:      domain,
 				IPv4Address: r.IP.String(),
 				TTLSeconds:  ttl,
 				Enabled:     true,
@@ -43,7 +54,7 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 		} else {
 			return DNSPolicy{
 				Type:        RecordTypeAAAA,
-				Domain:      r.Name,
+				Domain:      domain,
 				IPv6Address: r.IP.String(),
 				TTLSeconds:  ttl,
 				Enabled:     true,
@@ -53,7 +64,7 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 	case libdns.CNAME:
 		return DNSPolicy{
 			Type:         RecordTypeCNAME,
-			Domain:       r.Name,
+			Domain:       domain,
 			TargetDomain: r.Target,
 			TTLSeconds:   ttl,
 			Enabled:      true,
@@ -62,7 +73,7 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 	case libdns.TXT:
 		return DNSPolicy{
 			Type:       RecordTypeTXT,
-			Domain:     r.Name,
+			Domain:     domain,
 			Text:       r.Text,
 			TTLSeconds: ttl,
 			Enabled:    true,
@@ -71,7 +82,7 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 	case libdns.MX:
 		return DNSPolicy{
 			Type:             RecordTypeMX,
-			Domain:           r.Name,
+			Domain:           domain,
 			MailServerDomain: r.Target,
 			Priority:         r.Preference,
 			TTLSeconds:       ttl,
@@ -80,7 +91,7 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 	case libdns.SRV:
 		return DNSPolicy{
 			Type:         RecordTypeSRV,
-			Domain:       r.Name,
+			Domain:       domain,
 			ServerDomain: r.Target,
 			Service:      r.Service,
 			Protocol:     r.Transport,
@@ -95,8 +106,19 @@ func LibdnsToPolicy(record libdns.Record) (DNSPolicy, error) {
 	}
 }
 
-func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
+// PolicyToLibdns converts a Unifi DNS policy to a libdns record.
+// The zone parameter is required to extract the relative record name from the full domain.
+// For example, with domain "www.example.com" and zone "example.com", the name becomes "www".
+func PolicyToLibdns(policy DNSPolicy, zone string) (libdns.Record, error) {
 	ttl := time.Duration(policy.TTLSeconds) * time.Second
+
+	// Extract relative name by removing zone suffix from domain
+	name := policy.Domain
+	if name == zone {
+		name = "@"
+	} else if len(name) > len(zone) && name[len(name)-len(zone):] == zone {
+		name = name[:len(name)-len(zone)-1] // Remove zone and the preceding dot
+	}
 
 	switch policy.Type {
 	case RecordTypeA:
@@ -108,7 +130,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			return nil, fmt.Errorf("invalid IPv4 address: %w", err)
 		}
 		return libdns.Address{
-			Name: policy.Domain,
+			Name: name,
 			IP:   ip,
 			TTL:  ttl,
 		}, nil
@@ -122,7 +144,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			return nil, fmt.Errorf("invalid IPv6 address: %w", err)
 		}
 		return libdns.Address{
-			Name: policy.Domain,
+			Name: name,
 			IP:   ip,
 			TTL:  ttl,
 		}, nil
@@ -132,7 +154,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			return nil, fmt.Errorf("data (target) is required for CNAME_RECORD")
 		}
 		return libdns.CNAME{
-			Name:   policy.Domain,
+			Name:   name,
 			Target: policy.TargetDomain,
 			TTL:    ttl,
 		}, nil
@@ -142,7 +164,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			return nil, fmt.Errorf("text is required for TXT_RECORD")
 		}
 		return libdns.TXT{
-			Name: policy.Domain,
+			Name: name,
 			Text: policy.Text,
 			TTL:  ttl,
 		}, nil
@@ -157,7 +179,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			preference = 10 // Default preference value
 		}
 		return libdns.MX{
-			Name:       policy.Domain,
+			Name:       name,
 			Preference: preference,
 			Target:     policy.MailServerDomain,
 			TTL:        ttl,
@@ -168,7 +190,7 @@ func PolicyToLibdns(policy DNSPolicy) (libdns.Record, error) {
 			return nil, fmt.Errorf("server domain is required for SRV_RECORD")
 		}
 		return libdns.SRV{
-			Name:      policy.Domain,
+			Name:      name,
 			Service:   policy.Service,
 			Transport: policy.Protocol,
 			Priority:  policy.Priority,

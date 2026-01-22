@@ -43,7 +43,7 @@ func (p *Provider) GetRecords(ctx context.Context, zone string) ([]libdns.Record
 
 	records := make([]libdns.Record, len(policies))
 	for i, policy := range policies {
-		record, err := unifi.PolicyToLibdns(policy)
+		record, err := unifi.PolicyToLibdns(policy, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
 		}
@@ -63,7 +63,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := unifi.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
@@ -73,7 +73,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zone string, records []lib
 			return nil, fmt.Errorf("failed to create DNS policy: %w", err)
 		}
 
-		createdRecord, err := unifi.PolicyToLibdns(created)
+		createdRecord, err := unifi.PolicyToLibdns(created, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert created policy to libdns record: %w", err)
 		}
@@ -101,7 +101,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := unifi.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
@@ -132,7 +132,7 @@ func (p *Provider) SetRecords(ctx context.Context, zone string, records []libdns
 			}
 		}
 
-		createdRecord, err := unifi.PolicyToLibdns(result_policy)
+		createdRecord, err := unifi.PolicyToLibdns(result_policy, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
 		}
@@ -159,7 +159,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	result := make([]libdns.Record, 0, len(records))
 
 	for _, record := range records {
-		policy, err := unifi.LibdnsToPolicy(record)
+		policy, err := unifi.LibdnsToPolicy(record, zone)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert record to policy: %w", err)
 		}
@@ -181,7 +181,12 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 			return nil, fmt.Errorf("failed to delete DNS policy: %w", err)
 		}
 
-		result = append(result, record)
+		deleteResult, err := unifi.PolicyToLibdns(*existingPolicy, zone)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert policy to libdns record: %w", err)
+		}
+
+		result = append(result, deleteResult)
 	}
 
 	return result, nil
