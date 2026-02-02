@@ -333,6 +333,337 @@ func TestDeleteRecords(t *testing.T) {
 	}
 }
 
+// TestAAAARecords tests creating and managing IPv6 address records
+func TestAAAARecords(t *testing.T) {
+	provider, ctx := setup(t)
+
+	aaaRecords := []libdns.Record{
+		libdns.Address{
+			Name: "ipv6-test",
+			IP:   netip.MustParseAddr("2001:db8::1"),
+			TTL:  3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, aaaRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != 1 {
+		t.Errorf("Expected 1 created record, got %d", len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, aaaRecords)
+	})
+
+	// Verify the record exists
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	found := false
+	for _, record := range got {
+		if addr, ok := record.(libdns.Address); ok && addr.Name == "ipv6-test" && addr.IP.String() == "2001:db8::1" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("IPv6 record not found")
+	}
+}
+
+// TestCNAMERecords tests creating and managing CNAME records
+func TestCNAMERecords(t *testing.T) {
+	provider, ctx := setup(t)
+
+	cnameRecords := []libdns.Record{
+		libdns.CNAME{
+			Name:   "alias",
+			Target: "www.example.com",
+			TTL:    3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, cnameRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != 1 {
+		t.Errorf("Expected 1 created record, got %d", len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, cnameRecords)
+	})
+
+	// Verify the record exists
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	found := false
+	for _, record := range got {
+		if cname, ok := record.(libdns.CNAME); ok && cname.Name == "alias" && cname.Target == "www.example.com" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("CNAME record not found")
+	}
+}
+
+// TestTXTRecords tests creating and managing TXT records
+func TestTXTRecords(t *testing.T) {
+	provider, ctx := setup(t)
+
+	txtRecords := []libdns.Record{
+		libdns.TXT{
+			Name: "txt-test",
+			Text: "v=spf1 include:example.com ~all",
+			TTL:  3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, txtRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != 1 {
+		t.Errorf("Expected 1 created record, got %d", len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, txtRecords)
+	})
+
+	// Verify the record exists
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	found := false
+	for _, record := range got {
+		if txt, ok := record.(libdns.TXT); ok && txt.Name == "txt-test" && txt.Text == "v=spf1 include:example.com ~all" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("TXT record not found")
+	}
+}
+
+// TestMXRecords tests creating and managing MX records
+func TestMXRecords(t *testing.T) {
+	provider, ctx := setup(t)
+
+	mxRecords := []libdns.Record{
+		libdns.MX{
+			Name:       "mx-test",
+			Preference: 10,
+			Target:     "mail.example.com",
+			TTL:        3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, mxRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != 1 {
+		t.Errorf("Expected 1 created record, got %d", len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, mxRecords)
+	})
+
+	// Verify the record exists
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	found := false
+	for _, record := range got {
+		if mx, ok := record.(libdns.MX); ok && mx.Name == "mx-test" && mx.Target == "mail.example.com" && mx.Preference == 10 {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("MX record not found")
+	}
+}
+
+// TestSRVRecords tests creating and managing SRV records
+func TestSRVRecords(t *testing.T) {
+	provider, ctx := setup(t)
+
+	srvRecords := []libdns.Record{
+		libdns.SRV{
+			Name:      "exmaple.com",
+			Service:   "_service",
+			Transport: "tcp",
+			Port:      5060,
+			Priority:  10,
+			Weight:    60,
+			Target:    "server.example.com",
+			TTL:       3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, srvRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != 1 {
+		t.Errorf("Expected 1 created record, got %d", len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, srvRecords)
+	})
+
+	// Verify the record exists
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	found := false
+	for _, record := range got {
+		if srv, ok := record.(libdns.SRV); ok && srv.Name == "example.com" && srv.Target == "server.example.com" && srv.Port == 5060 {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("SRV record not found")
+	}
+}
+
+// TestMixedRecordTypes tests creating and managing multiple record types together
+func TestMixedRecordTypes(t *testing.T) {
+	provider, ctx := setup(t)
+
+	mixedRecords := []libdns.Record{
+		libdns.Address{
+			Name: "mixed-a",
+			IP:   netip.MustParseAddr("192.0.2.100"),
+			TTL:  3600 * time.Second,
+		},
+		libdns.Address{
+			Name: "mixed-aaaa",
+			IP:   netip.MustParseAddr("2001:db8::100"),
+			TTL:  3600 * time.Second,
+		},
+		libdns.CNAME{
+			Name:   "mixed-cname",
+			Target: "www.example.com",
+			TTL:    3600 * time.Second,
+		},
+		libdns.TXT{
+			Name: "mixed-txt",
+			Text: "test text record",
+			TTL:  3600 * time.Second,
+		},
+		libdns.MX{
+			Name:       "mixed-mx",
+			Preference: 20,
+			Target:     "mail.example.com",
+			TTL:        3600 * time.Second,
+		},
+	}
+
+	created, err := provider.AppendRecords(ctx, *zone, mixedRecords)
+	if err != nil {
+		t.Fatalf("AppendRecords failed: %v", err)
+	}
+
+	if len(created) != len(mixedRecords) {
+		t.Errorf("Expected %d created records, got %d", len(mixedRecords), len(created))
+	}
+
+	t.Cleanup(func() {
+		_, _ = provider.DeleteRecords(ctx, *zone, mixedRecords)
+	})
+
+	// Verify all records exist
+	got, err := provider.GetRecords(ctx, *zone)
+	if err != nil {
+		t.Fatalf("GetRecords failed: %v", err)
+	}
+
+	if len(got) < len(mixedRecords) {
+		t.Errorf("Expected at least %d records, got %d", len(mixedRecords), len(got))
+	}
+
+	// Check for each record type
+	typeCount := map[string]int{
+		"A":     0,
+		"AAAA":  0,
+		"CNAME": 0,
+		"TXT":   0,
+		"MX":    0,
+	}
+
+	for _, record := range got {
+		switch r := record.(type) {
+		case libdns.Address:
+			if r.IP.Is4() && r.Name == "mixed-a" {
+				typeCount["A"]++
+			} else if r.IP.Is6() && r.Name == "mixed-aaaa" {
+				typeCount["AAAA"]++
+			}
+		case libdns.CNAME:
+			if r.Name == "mixed-cname" {
+				typeCount["CNAME"]++
+			}
+		case libdns.TXT:
+			if r.Name == "mixed-txt" {
+				typeCount["TXT"]++
+			}
+		case libdns.MX:
+			if r.Name == "mixed-mx" {
+				typeCount["MX"]++
+			}
+		}
+	}
+
+	if typeCount["A"] == 0 {
+		t.Error("A record not found in mixed records")
+	}
+	if typeCount["AAAA"] == 0 {
+		t.Error("AAAA record not found in mixed records")
+	}
+	if typeCount["CNAME"] == 0 {
+		t.Error("CNAME record not found in mixed records")
+	}
+	if typeCount["TXT"] == 0 {
+		t.Error("TXT record not found in mixed records")
+	}
+	if typeCount["MX"] == 0 {
+		t.Error("MX record not found in mixed records")
+	}
+}
+
 // ExampleProvider demonstrates basic usage of the unifi provider
 func ExampleProvider() {
 	provider := unifi.Provider{

@@ -72,11 +72,11 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 
 	case libdns.TXT:
 		return DNSPolicy{
-			Type:       RecordTypeTXT,
-			Domain:     domain,
-			Text:       r.Text,
-			TTLSeconds: ttl,
-			Enabled:    true,
+			Type:    RecordTypeTXT,
+			Domain:  domain,
+			Text:    r.Text,
+			Enabled: true,
+			// TTLSeconds: ttl, # Not supported
 		}, nil
 
 	case libdns.MX:
@@ -85,21 +85,21 @@ func LibdnsToPolicy(record libdns.Record, zone string) (DNSPolicy, error) {
 			Domain:           domain,
 			MailServerDomain: r.Target,
 			Priority:         r.Preference,
-			TTLSeconds:       ttl,
 			Enabled:          true,
+			// TTLSeconds:       ttl, # Not supported
 		}, nil
 	case libdns.SRV:
 		return DNSPolicy{
 			Type:         RecordTypeSRV,
-			Domain:       domain,
+			Domain:       zone,
 			ServerDomain: r.Target,
 			Service:      r.Service,
-			Protocol:     r.Transport,
+			Protocol:     "_" + r.Transport,
 			Port:         r.Port,
 			Weight:       r.Weight,
 			Priority:     r.Priority,
-			TTLSeconds:   ttl,
 			Enabled:      true,
+			// TTLSeconds:   ttl, # Not supported
 		}, nil
 	default:
 		return DNSPolicy{}, fmt.Errorf("unsupported record type: %T", record)
@@ -190,7 +190,7 @@ func PolicyToLibdns(policy DNSPolicy, zone string) (libdns.Record, error) {
 			return nil, fmt.Errorf("server domain is required for SRV_RECORD")
 		}
 		return libdns.SRV{
-			Name:      name,
+			Name:      policy.Domain,
 			Service:   policy.Service,
 			Transport: policy.Protocol,
 			Priority:  policy.Priority,

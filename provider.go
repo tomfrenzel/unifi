@@ -177,7 +177,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 		}
 
 		if existingPolicy == nil {
-			continue // Record doesn't exist, skip it
+			continue
 		}
 
 		if err := client.DeletePolicy(ctx, p.SiteId, existingPolicy.ID); err != nil {
@@ -195,11 +195,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zone string, records []lib
 	return result, nil
 }
 
-// getClient lazily initializes and returns the API client.
-// It uses the provider's fields, falling back to environment variables if not set:
-// - UNIFI_API_KEY for APIKey
-// - UNIFI_SITE_ID for SiteId
-// - UNIFI_BASE_URL for BaseUrl
+// getClient initializes and returns the API client.
 func (p *Provider) getClient() (*unifi.Client, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
